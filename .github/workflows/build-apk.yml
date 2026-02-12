@@ -34,11 +34,11 @@ jobs:
     - name: Verify Flutter installation
       run: flutter doctor -v
 
-    - name: Build APK (Release)
-      run: flutter build apk --release --target-platform android-arm64
-
-    - name: Build APK (Universal - includes both arm64 and arm-v7a)
+    - name: Build APK (Universal)
       run: flutter build apk --release
+
+    - name: Build APK (ARM64)
+      run: flutter build apk --release --target-platform android-arm64
 
     - name: Upload APK (Universal)
       uses: actions/upload-artifact@v4
@@ -59,16 +59,17 @@ jobs:
       run: |
         VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}')
         echo "version=${version%+*}" >> $GITHUB_OUTPUT
-        BUILD_NUMBER=$(grep 'version:' pubspec.yaml | awk -F'+' '{print $2}')
-        echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+        echo "current_date=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
 
-    - name: Create Release Tag
+    - name: Create Release Tag and Trigger Release Workflow
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
       run: |
+        BUILD_NUMBER=${{ steps.version.outputs.current_date }}
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
-        git tag -a "v${{ steps.version.outputs.version }}-b${{ steps.version.outputs.build_number }}" -m "Release ${{ steps.version.outputs.version }}"
-        git push origin "v${{ steps.version.outputs.version }}-b${{ steps.version.outputs.build_number }}" || true
+        TAG_NAME="v1.0.0-${BUILD_NUMBER}"
+        git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}"
+        git push origin "${TAG_NAME}" 2>&1 || echo "Tag already exists"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -76,39 +77,11 @@ jobs:
       run: |
         echo "## 📱 Build Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Build Number:** ${{ steps.version.outputs.build_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** 1.0.0" >> $GITHUB_STEP_SUMMARY
+        echo "**Build Date:** ${{ steps.version.outputs.current_date }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "- Universal APK (compatible with most devices)" >> $GITHUB_STEP_SUMMARY
-        echo "- ARM64 APK (for newer Android devices)" >> $GITHUB_STEP_SUMMARY
+        echo "- Universal APK (build-app/outputs/flutter-apk/)" >> $GITHUB_STEP_SUMMARY
+        echo "- ARM64 APK (build-app/outputs/flutter-apk/)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Download from the Artifacts section below ⬇️" >> $GITHUB_STEP_SUMMARY
-
-  build-on-windows:
-    if: ${{ false }}  # Disabled by default
-    runs-on: windows-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Flutter (Windows)
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.19.0'
-        channel: 'stable'
-        cache: true
-
-    - name: Get Flutter dependencies
-      run: flutter pub get
-
-    - name: Build APK (Windows Runner)
-      run: flutter build apk --release
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: looptrack-windows-build-apk
-        path: build/app/outputs/flutter-apk/app-release.apk
-        retention-days: 30
+        echo "Once tagged, APKs will be available in Releases section" >> $GITHUB_STEP_SUMMARY
