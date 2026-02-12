@@ -38,6 +38,11 @@ flutter build apk --release
 
 The APK will be at: `build/app/outputs/flutter-apk/app-release.apk`
 
+To also copy it into this repository under `apk/looptrack-release.apk`:
+```bash
+./scripts/build-apk.sh
+```
+
 ### GitHub Actions Build (Recommended)
 
 1. **Push your code to GitHub**
