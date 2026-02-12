@@ -1,0 +1,114 @@
+name: Build LoopTrack APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.0'
+        channel: 'stable'
+        cache: true
+
+    - name: Get Flutter dependencies
+      run: flutter pub get
+
+    - name: Verify Flutter installation
+      run: flutter doctor -v
+
+    - name: Build APK (Release)
+      run: flutter build apk --release --target-platform android-arm64
+
+    - name: Build APK (Universal - includes both arm64 and arm-v7a)
+      run: flutter build apk --release
+
+    - name: Upload APK (Universal)
+      uses: actions/upload-artifact@v4
+      with:
+        name: looptrack-universal-apk
+        path: build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
+
+    - name: Upload APK (Arm64)
+      uses: actions/upload-artifact@v4
+      with:
+        name: looptrack-arm64-apk
+        path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+        retention-days: 30
+
+    - name: Get version info
+      id: version
+      run: |
+        VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}')
+        echo "version=${version%+*}" >> $GITHUB_OUTPUT
+        BUILD_NUMBER=$(grep 'version:' pubspec.yaml | awk -F'+' '{print $2}')
+        echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+
+    - name: Create Release Tag
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git tag -a "v${{ steps.version.outputs.version }}-b${{ steps.version.outputs.build_number }}" -m "Release ${{ steps.version.outputs.version }}"
+        git push origin "v${{ steps.version.outputs.version }}-b${{ steps.version.outputs.build_number }}" || true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Add summary
+      run: |
+        echo "## 📱 Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Build Number:** ${{ steps.version.outputs.build_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- Universal APK (compatible with most devices)" >> $GITHUB_STEP_SUMMARY
+        echo "- ARM64 APK (for newer Android devices)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Download from the Artifacts section below ⬇️" >> $GITHUB_STEP_SUMMARY
+
+  build-on-windows:
+    if: ${{ false }}  # Disabled by default
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter (Windows)
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.0'
+        channel: 'stable'
+        cache: true
+
+    - name: Get Flutter dependencies
+      run: flutter pub get
+
+    - name: Build APK (Windows Runner)
+      run: flutter build apk --release
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: looptrack-windows-build-apk
+        path: build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
