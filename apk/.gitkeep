@@ -1,0 +1,1 @@
+# Keep this directory in git. Built APKs are copied here by scripts/build-apk.sh.

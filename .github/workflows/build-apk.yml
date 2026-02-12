@@ -57,8 +57,8 @@ jobs:
     - name: Get version info
       id: version
       run: |
-        VERSION=$(grep 'version:' pubspec.yaml | awk '{print $2}')
-        echo "version=${version%+*}" >> $GITHUB_OUTPUT
+        VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+        echo "version=${VERSION%+*}" >> $GITHUB_OUTPUT
         echo "current_date=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
 
     - name: Create Release Tag and Trigger Release Workflow
